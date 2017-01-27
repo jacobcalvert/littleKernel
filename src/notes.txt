@@ -1,0 +1,180 @@
+Code that does the switching
+#include <avr/io.h>
+#include <string.h>
+#include <stdio.h>
+#define BAUD 57600
+#define BAUD_RATE ((F_CPU/16/BAUD) - 1)
+
+void uart_init()
+{
+	UBRR0H = (BAUD_RATE >> 8);
+	UBRR0L = BAUD_RATE;
+	UCSR0B = (1 << TXEN0)| (1 << TXCIE0) | (1 << RXEN0) | (1 << RXCIE0);
+	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);  //8 bit data format
+}
+
+char get_c()
+{
+	 while( ( UCSR0A & ( 1 << RXC0 ) ) == 0 ){}
+	 char cache_c = UDR0;
+	 return cache_c;
+}
+
+void put_c(char c)
+{
+	while (( UCSR0A & (1<<UDRE0))  == 0){};
+	UDR0 = c;
+}
+
+void putstr(char *str)
+{
+	while(*str != 0)
+	{
+		put_c(*str);
+		str++;
+	}
+}
+int main(void);
+int test();
+int test2();
+uint16_t rend, sp,addr;
+uint8_t *val=RAMEND;
+int test()
+{
+	addr = (uint16_t) &test2;
+	putstr("In test()\r\n");
+
+	*val = (addr);
+	*(val -1) = 0;
+	SPL = SPL - 2;
+	if( SPL == 0xFF)
+	{
+		putstr("SPL = 0xFF\r\n");
+	}
+	if(*val != (addr & 0xff) || *(val -1) != 0)
+	{
+		while(1){}
+	}
+	return 0;
+}
+int test2()
+{
+	addr = (uint16_t) &test;
+	putstr("In test2()\r\n");
+
+	*val = (addr);
+	*(val -1) = 0;
+	SPL = SPL - 2;
+	if( SPL == 0xFF)
+	{
+		putstr("SPL = 0xFF\r\n");
+	}
+	if(*val != (addr & 0xff) || *(val -1) != 0)
+	{
+		while(1){}
+	}
+	return 0;
+}
+int k = 0;
+char temp[100];
+
+int main(void)
+{
+	addr = (uint16_t) &test;
+	k++;
+	uart_init();
+	putstr("\r\nHello, world!\r\n");
+	sprintf(temp, "[%03d] Old return addr = 0x%04x, new return addr = 0x%04x\r\n", k, (((uint16_t)*(val-1))<< 8) | *(val) , addr);
+	putstr(temp);
+	*val = (addr);
+	*(val -1) = 0;
+
+	if(*val != (addr & 0xff) || *(val -1) != 0)
+	{
+		while(1){}
+	}
+
+
+
+
+}
+-----------------------------------
+ISR(__vector_default){
+}
+
+The default vector is needed!!!! Otherwise we get reset!!
+Seee http://www.avrfreaks.net/forum/sei-resets-avr
+
+--------------------------------------
+
+#include <avr/io.h>
+#include <string.h>
+#include <stdio.h>
+#include <avr/interrupt.h>
+#include <avr/wdt.h>
+
+#define BAUD 57600
+#define BAUD_RATE ((F_CPU/16/BAUD) - 1)
+void uart_init()
+{
+	UBRR0H = (BAUD_RATE >> 8);
+	UBRR0L = BAUD_RATE;
+	UCSR0B = (1 << TXEN0)| (1 << TXCIE0) | (1 << RXEN0) | (1 << RXCIE0);
+	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);  //8 bit data format
+}
+
+char get_c()
+{
+	 while( ( UCSR0A & ( 1 << RXC0 ) ) == 0 ){}
+	 char cache_c = UDR0;
+	 return cache_c;
+}
+
+void put_c(char c)
+{
+	while (( UCSR0A & (1<<UDRE0))  == 0){};
+	UDR0 = c;
+}
+
+void putstr(char *str)
+{
+	if(str == 0)return;
+	while(*str != 0)
+	{
+		put_c(*str);
+		str++;
+	}
+}
+ISR (TIMER1_OVF_vect)
+{
+	putstr("In ISR\r\n");
+
+}
+ISR(__vector_default){
+}
+
+int main(void)
+{
+
+	cli();
+	uart_init();
+	putstr("Hello, world!\r\n");
+
+	TCCR1B = (1<<CS12)|(1<<CS10);
+	putstr("After setting clock\r\n");
+	 /* Clear overflow flag */
+	 TIFR1 = 1<<TOV1;
+	 putstr("After clearing ovf flag\r\n");
+	 /* Enable Overflow Interrupt */
+	 TIMSK1 = 1<<TOIE1;
+	 putstr("After enabling timer1\r\n");
+	 sei();
+	 putstr("After enabling interrupts\r\n");
+	while(1)
+	{
+
+	}
+	putstr("We shouldn't get here.. !!!");
+	while(1);
+	return 0;
+}
