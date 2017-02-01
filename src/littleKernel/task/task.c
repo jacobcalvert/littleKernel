@@ -166,7 +166,7 @@ void scheduler_init()
 	}
 	pCurrentTask = taskList;
 	TCCR1B = (1<<CS11) | (1<< WGM12); 	/* io_clk / 1024  */
-	OCR1A = 200;					/* roughly 10kHz */
+	OCR1A = 2000;					/* roughly 1kHz */
 	TIFR1 = 1<<OCF1A; 				/* clear oc flag */
 	TIMSK1 = 1<<OCIE1A;				/* enable the int */
 

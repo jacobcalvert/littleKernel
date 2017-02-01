@@ -61,7 +61,7 @@ void counterLoop()
 	{
 		sprintf(temp, "-->Idle has run %u times\r\n", counter);
 		putstr(temp);
-		task_sleep(10000); //1s
+		task_sleep(1000); //1s
 	}
 }
 void testA()
@@ -70,7 +70,7 @@ void testA()
 	while(1)
 	{
 		putstr("In testA\r\n");
-		task_sleep(50000); //5s
+		task_sleep(5000); //5s
 	}
 
 }
@@ -79,7 +79,7 @@ void testB()
 		while(1)
 		{
 			putstr("Here in the highest one!\r\n");
-			task_sleep(20000); //2s;
+			task_sleep(2000); //2s;
 		}
 }
 void ledBlink()
@@ -87,14 +87,37 @@ void ledBlink()
 	while(1)
 	{
 		PORTB ^= (1<<PB5);
-		task_sleep(1000);
+		task_sleep(100);
 	}
 }
+const char *BANNER = "-----------------------------------------------\r\n"
+					 "------------------Hello World -----------------\r\n"
+					 "-----------------------------------------------\r\n";
+
 int main(void)
 {
+
+	uint8_t reset_cause = (MCUSR & 0xF);
+	MCUSR = 0;
 	uart_init();
+	if(reset_cause & (1<<PORF))
+	{
+		putstr("[Power on reset occurred]\r\n");
+	}
+	if(reset_cause & (1<<EXTRF))
+	{
+		putstr("[External reset occurred]\r\n");
+	}
+	if(reset_cause & (1<<BORF))
+	{
+		putstr("[Brown out reset occurred]\r\n");
+	}
+	if(reset_cause & (1<<WDRF))
+	{
+		putstr("[WDT reset occurred]\r\n");
+	}
 	uart_sem = sem_create(1, 0);
-	putstr("Hello, world!\r\n");
+	putstr(BANNER);
 	DDRB |= (1<<PB5 | 1 << PB4);
 	PORTB &= ~(1 << PB5 | 1 << PB4);
 	scheduler_add_task(0, idle_task);

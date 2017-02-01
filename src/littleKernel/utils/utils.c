@@ -1,5 +1,6 @@
 #include "littleKernel/utils/utils.h"
 #include "littleKernel/task/task.h"
+#include "littleKernel/config.h"
 #include <avr/interrupt.h>
 
 #include <stdlib.h>
@@ -54,7 +55,7 @@ uint8_t sem_take(semaphore_t * s, uint16_t wait)
 					sei();
 					return 1;
 				}
-				sei();
+				task_sleep(1000);
 			}
 		}
 		else
