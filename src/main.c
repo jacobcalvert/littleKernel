@@ -41,11 +41,12 @@ void putstr(char *str)
 ISR(__vector_default){
 }
 volatile uint16_t counter = 0;
-volatile void idle_task()
+
+void idle_task()
 {
 	while(1)
 	{
-		putstr("!");
+
 		counter ++;
 	}
 }
@@ -87,25 +88,17 @@ void ledBlink()
 }
 int main(void)
 {
-	char temp[100];
 	uart_init();
 	putstr("Hello, world!\r\n");
 	DDRB |= (1<<PB5 | 1 << PB4);
 	PORTB &= ~(1 << PB5 | 1 << PB4);
-	sprintf(temp, "Size of uint8_t* is %d, size of void * is %d\r\n", sizeof(uint8_t*), sizeof(void*));
-	putstr(temp);
 	scheduler_add_task(0, idle_task);
 	scheduler_add_task(10, testA);
 	scheduler_add_task(12, testB);
 	scheduler_add_task(2, ledBlink);
 	scheduler_add_task(1, counterLoop);
-	putstr("Got to init\r\n");
-	tasks_print();
 	scheduler_init();
-	task_t *top = scheduler_get_top();
-
-
-
+	scheduler_begin();
 	while(1)
 	{
 	}

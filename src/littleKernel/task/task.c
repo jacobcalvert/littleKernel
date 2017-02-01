@@ -151,11 +151,8 @@ void scheduler_init()
 {
 	uint16_t addr;
 	task_t * p = taskList;
-	putstr("inside init\r\n");
-	char temp[64];
 	while(p != 0)
 	{
-		putstr("Top");
 		addr = (uint16_t) p->entry;
 		p->flags = TASK_NEW | TASK_RDY;
 		p->delay_ticks = 0;
@@ -165,7 +162,6 @@ void scheduler_init()
 		/*
 		 * TODO: add debug in this thing
 		 */
-		putstr(".");
 		p = p->next;
 	}
 	pCurrentTask = taskList;
@@ -173,7 +169,6 @@ void scheduler_init()
 	OCR1A = 200;					/* roughly 10kHz */
 	TIFR1 = 1<<OCF1A; 				/* clear oc flag */
 	TIMSK1 = 1<<OCIE1A;				/* enable the int */
-	putstr("about to exit init\r\n");
 
 }
 uint16_t scheduler_get_sp()
@@ -182,6 +177,11 @@ uint16_t scheduler_get_sp()
 }
 void task_sleep(uint32_t ticks)
 {
+	/*
+	 * we must disable interrupts right away
+	 * or we could have pCurrentTask swept out
+	 */
+	cli();
 	pCurrentTask->delay_ticks =  ticks -1;
 	pCurrentTask->flags &= ~TASK_RDY;
 	scheduler_run();
@@ -194,12 +194,13 @@ void tick_handler()
 	{
 		if(p->delay_ticks != 0)
 		{
-			--(p->delay_ticks);
+			p->delay_ticks--;
 		}
 		else
 		{
 			p->flags |= TASK_RDY;
 		}
+		p = p->next;
 	}
 }
 
@@ -207,7 +208,8 @@ void context_switcher()
 {
 #if TASK_USE_PRIORITY == 1
 	uint8_t ctxPri = 0;
-	task_t *p = taskList, *savedTask = 0;
+	task_t *p = taskList;
+	pCurrentTask = taskList; /* default to the idle task */
 	while(p != 0)
 	{
 		if(p->flags & TASK_RDY)
@@ -215,13 +217,12 @@ void context_switcher()
 			if(p->priority > ctxPri)
 			{
 				ctxPri = p->priority;
-				savedTask = p;
+				pCurrentTask = p;
 			}
 		}
 		p = p->next;
 	}
 
-	pCurrentTask = savedTask;
 
 #else
 		if(pCurrentTask->next != 0)
@@ -246,10 +247,7 @@ task_t *scheduler_get_top()
 void scheduler_begin()
 {
 	pCurrentTask->sp = &(pCurrentTask->stack[TASK_STACK_SIZE - 3]);
-	uint16_t sp = (uint16_t)pCurrentTask->sp;
-	SPL = (sp &0xff);
-	SPH = (sp >> 8)& 0xFF;
-	sp = (SPH << 8) | SPL;
+	SP = (uint16_t)pCurrentTask->sp;
 	sei();
 	asm volatile ( "ret" );
 }
