@@ -1,7 +1,8 @@
 #ifndef __SPOS_TASK__
 #define __SPOS_TASK__
 #include <stdint.h>
-#include "spos/config.h"
+
+#include "littleKernel/config.h"
 
 
 #define TASK_RDY 		(1<<0)

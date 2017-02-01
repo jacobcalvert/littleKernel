@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
-#include "spos/task/task.h"
+#include "littleKernel/task/task.h"
 volatile int k = 0;
 volatile static task_t theTasks[5];
 
