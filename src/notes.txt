@@ -4,10 +4,10 @@ Improvements
 [x] make the tasks a linked list
 [ ] make it so that tasks can be dynamically added to the list
 [ ] make it so that tasks can die gracefully
-[ ] semaphores
+[x] semaphores
 [ ] get rid of massive macros for save and restore
-[ ] make uart communications semaphore protected
-[ ] make the first task not need special initialization
+[x] make uart communications semaphore protected
+[x] make the first task not need special initialization
 
 
 
