@@ -5,7 +5,6 @@
 #include <avr/wdt.h>
 #include "littleKernel/task/task.h"
 volatile int k = 0;
-volatile static task_t theTasks[5];
 
 #define BAUD 57600
 #define BAUD_RATE ((F_CPU/16/BAUD) - 1)
@@ -94,25 +93,23 @@ int main(void)
 	PORTB &= ~(1 << PB5 | 1 << PB4);
 	sprintf(temp, "Size of uint8_t* is %d, size of void * is %d\r\n", sizeof(uint8_t*), sizeof(void*));
 	putstr(temp);
-	theTasks[0].entry = idle_task;
-	theTasks[1].entry = testA;
-	theTasks[2].entry = testB;
-	theTasks[3].entry = ledBlink;
-	theTasks[4].entry = counterLoop;
-	theTasks[0].priority = 0;
-	theTasks[1].priority = 10;
-	theTasks[2].priority = 12;
-	theTasks[3].priority = 2;
-	theTasks[4].priority = 1;
-	scheduler_init(theTasks, 5);
-	uint16_t sp = (uint16_t) theTasks[0].sp;
-
-	SPL = sp&0xFF;
-	SPH = (sp >> 8) &0xFF;
-
+	scheduler_add_task(0, idle_task);
+	scheduler_add_task(10, testA);
+	scheduler_add_task(12, testB);
+	scheduler_add_task(2, ledBlink);
+	scheduler_add_task(1, counterLoop);
+	putstr("Got to init\r\n");
+	tasks_print();
+	scheduler_init();
+	uint16_t sp = scheduler_get_sp();
+	uint8_t *val = (uint8_t*)sp;
+	sprintf(temp, "jump address should be 0x%x, is actually 0x%x%x", (uint16_t)idle_task, *(val+1), (*val));
+	putstr(temp);
+	putstr("After init\r\n");
+	SPL = (sp & 0xFF);
+	SPH = (sp >> 8) & 0xFF;
+	sp = (SPH << 8) | SPL;
 	sei();
-
-	sp = SPH<<8 | SPL;
 	__asm__ __volatile__("ret");
 
 

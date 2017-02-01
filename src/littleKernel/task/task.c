@@ -2,9 +2,10 @@
 #include <avr/interrupt.h>
 #include <stdint.h>
 #include <stdio.h>
-volatile uint8_t numTasks = 0, currentTaskIdx = 0;
-volatile task_t *taskList = 0;
-volatile static task_t *pCurrentTask = 0;
+#include <stdlib.h>
+static uint16_t taskIdCounter = 0;
+task_t *taskList = 0;
+static task_t *pCurrentTask = 0;
 
 volatile uint8_t fInISR = 0;
 volatile uint32_t gTicks = 0;
@@ -110,41 +111,75 @@ void TIMER1_COMPA_vect(void)
 
 
 }
-void scheduler_init(task_t *list, uint8_t n)
+void tasks_print()
 {
-	taskList = list;
-	numTasks = n;
-	uint16_t addr;
 	char temp[100];
-	for(uint8_t i = 0; i < n; i++)
+	task_t * p = taskList;
+	while(p != 0)
 	{
-		addr = (uint16_t) taskList[i].entry;
-		taskList[i].flags = TASK_NEW | TASK_RDY;
-		taskList[i].id = i;
-		taskList[i].delay_ticks = 0;
-		taskList[i].stack[TASK_STACK_SIZE-1] = addr & 0xFF;
-		taskList[i].stack[TASK_STACK_SIZE-2] = (addr >> 8) & 0xFF;
-		if(i == 0)
-		{
-
-			taskList[i].sp = &taskList[i].stack[TASK_STACK_SIZE-3];
-
-		}
-		else
-		{
-			taskList[i].sp = &taskList[i].stack[TASK_STACK_SIZE-36];
-		}
-		sprintf(temp, "For task at %p, the stack is (sp+2) = 0x%02x, (sp+1) = 0x%02x\r\n",taskList[i].entry,*(taskList[i].sp+2), *(taskList[i].sp+1) );
+		sprintf(temp,"Task ID: %u\r\n-->%p\r\nFlags=0x%x\r\n",p->id, p->entry, p->flags);
 		putstr(temp);
+		p = p->next;
+	}
+}
+void scheduler_add_task(uint8_t priority, void (*entry)())
+{
+	if(taskList == 0)
+	{
+		taskList = (task_t *)malloc(sizeof(task_t));
+		taskList->priority = priority;
+		taskList->entry = entry;
+		taskList->next = 0;
+		taskList->id = taskIdCounter++;
+	}
+	else
+	{
+		task_t *p = taskList;
+		while(p->next != 0)
+		{
+			p = p->next;
+		}
+		task_t *node = (task_t *)malloc(sizeof(task_t));
+		node->priority = priority;
+		node->entry = entry;
+		node->next = 0;
+		node->id = taskIdCounter++;
+		p->next = node;
+	}
+}
+void scheduler_init()
+{
+	uint16_t addr;
+	task_t * p = taskList;
+	putstr("inside init\r\n");
+	char temp[64];
+	while(p != 0)
+	{
+		putstr("Top");
+		addr = (uint16_t) p->entry;
+		p->flags = TASK_NEW | TASK_RDY;
+		p->delay_ticks = 0;
+		p->stack[TASK_STACK_SIZE-1] = addr & 0xFF;
+		p->stack[TASK_STACK_SIZE-2] = (addr >> 8) & 0xFF;
+		p->sp = &(p->stack[TASK_STACK_SIZE-36]);
+		/*
+		 * TODO: add debug in this thing
+		 */
+		putstr(".");
+		p = p->next;
 	}
 	pCurrentTask = taskList;
 	TCCR1B = (1<<CS11) | (1<< WGM12); 	/* io_clk / 1024  */
 	OCR1A = 200;					/* roughly 10kHz */
 	TIFR1 = 1<<OCF1A; 				/* clear oc flag */
 	TIMSK1 = 1<<OCIE1A;				/* enable the int */
+	putstr("about to exit init\r\n");
 
 }
-
+uint16_t scheduler_get_sp()
+{
+	return (uint16_t) pCurrentTask->sp;
+}
 void task_sleep(uint32_t ticks)
 {
 	pCurrentTask->delay_ticks =  ticks -1;
@@ -153,19 +188,17 @@ void task_sleep(uint32_t ticks)
 }
 void tick_handler()
 {
-	for(uint8_t i = 0; i < numTasks; i++)
+	task_t *p = taskList;
+
+	while(p != 0)
 	{
-		/*
-		 * if we're not yet zero, decrement
-		 */
-		if(taskList[i].delay_ticks != 0)
+		if(p->delay_ticks != 0)
 		{
-			--(taskList[i].delay_ticks);
+			--(p->delay_ticks);
 		}
 		else
 		{
-			/* if we are zero now, make sure the run flag is set */
-			taskList[i].flags |= TASK_RDY;
+			p->flags |= TASK_RDY;
 		}
 	}
 }
@@ -173,34 +206,32 @@ void tick_handler()
 void context_switcher()
 {
 #if TASK_USE_PRIORITY == 1
-	uint8_t ctxIdx, ctxPri, ctxSave;
-		/*
-		 * this will be where a priority task switch
-		 * scheme will be implemented. for now,
-		 * i'll will only use round-robin
-		 */
-		ctxPri = 0;
-		ctxSave = 0;
-		for(ctxIdx = 0; ctxIdx < numTasks; ctxIdx++)
+	uint8_t ctxPri = 0;
+	task_t *p = taskList, *savedTask = 0;
+	while(p != 0)
+	{
+		if(p->flags & TASK_RDY)
 		{
-			if(taskList[ctxIdx].flags & TASK_RDY)
+			if(p->priority > ctxPri)
 			{
-				if(taskList[ctxIdx].priority > ctxPri)
-				{
-					ctxPri = taskList[ctxIdx].priority;
-					ctxSave = ctxIdx;
-				}
+				ctxPri = p->priority;
+				savedTask = p;
 			}
 		}
-		pCurrentTask = &taskList[ctxSave];
+		p = p->next;
+	}
+
+	pCurrentTask = savedTask;
 
 #else
-		currentTaskIdx++;
-		if(currentTaskIdx == numTasks)
+		if(pCurrentTask->next != 0)
 		{
-			currentTaskIdx = 0;
+			pCurrentTask = pCurrentTask->next;
 		}
-		pCurrentTask = &taskList[currentTaskIdx];
+		else
+		{
+			pCurrentTask = taskList;
+		}
 
 #endif
 }

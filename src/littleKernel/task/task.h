@@ -18,12 +18,16 @@ typedef struct task
 	uint8_t priority;
 	uint8_t flags;
 	uint32_t delay_ticks;
+	struct task *next;
 
 	void (*entry)();
 
 }task_t;
 
-void scheduler_init(task_t *list, uint8_t n);
+void tasks_print();
+void scheduler_add_task(uint8_t priority, void (*entry)());
+void scheduler_init();
+uint16_t scheduler_get_sp();
 void scheduler_run() __attribute__ ((naked));
 
 uint64_t get_ticks();
