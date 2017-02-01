@@ -1,5 +1,5 @@
-#ifndef __SPOS_TASK__
-#define __SPOS_TASK__
+#ifndef __LK_TASK__
+#define __LK_TASK__
 #include <stdint.h>
 
 #include "littleKernel/config.h"

@@ -1,5 +1,5 @@
-#ifndef __SPOS_CONFIG__
-#define __SPOS_CONFIG__
+#ifndef __LK_CONFIG__
+#define __LK_CONFIG__
 
 #define TASK_STACK_SIZE	35*4
 

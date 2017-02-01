@@ -4,6 +4,8 @@
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
 #include "littleKernel/task/task.h"
+#include "littleKernel/utils/utils.h"
+semaphore_t *uart_sem;
 volatile int k = 0;
 
 #define BAUD 57600
@@ -32,11 +34,13 @@ void put_c(char c)
 void putstr(char *str)
 {
 	if(str == 0)return;
+	sem_take(uart_sem, SEM_WAIT_FOREVER);
 	while(*str != 0)
 	{
 		put_c(*str);
 		str++;
 	}
+	sem_give(uart_sem);
 }
 ISR(__vector_default){
 }
@@ -89,6 +93,7 @@ void ledBlink()
 int main(void)
 {
 	uart_init();
+	uart_sem = sem_create(1, 0);
 	putstr("Hello, world!\r\n");
 	DDRB |= (1<<PB5 | 1 << PB4);
 	PORTB &= ~(1 << PB5 | 1 << PB4);
