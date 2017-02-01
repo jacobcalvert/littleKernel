@@ -239,6 +239,20 @@ uint64_t get_ticks()
 {
 	return gTicks;
 }
+task_t *scheduler_get_top()
+{
+	return pCurrentTask;
+}
+void scheduler_begin()
+{
+	pCurrentTask->sp = &(pCurrentTask->stack[TASK_STACK_SIZE - 3]);
+	uint16_t sp = (uint16_t)pCurrentTask->sp;
+	SPL = (sp &0xff);
+	SPH = (sp >> 8)& 0xFF;
+	sp = (SPH << 8) | SPL;
+	sei();
+	asm volatile ( "ret" );
+}
 void scheduler_run()
 {
 	SAVE_CONTEXT();

@@ -28,6 +28,8 @@ void tasks_print();
 void scheduler_add_task(uint8_t priority, void (*entry)());
 void scheduler_init();
 uint16_t scheduler_get_sp();
+task_t *scheduler_get_top();
+void scheduler_begin() __attribute__((naked));
 void scheduler_run() __attribute__ ((naked));
 
 uint64_t get_ticks();

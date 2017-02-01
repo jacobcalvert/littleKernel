@@ -45,6 +45,7 @@ volatile void idle_task()
 {
 	while(1)
 	{
+		putstr("!");
 		counter ++;
 	}
 }
@@ -101,16 +102,8 @@ int main(void)
 	putstr("Got to init\r\n");
 	tasks_print();
 	scheduler_init();
-	uint16_t sp = scheduler_get_sp();
-	uint8_t *val = (uint8_t*)sp;
-	sprintf(temp, "jump address should be 0x%x, is actually 0x%x%x", (uint16_t)idle_task, *(val+1), (*val));
-	putstr(temp);
-	putstr("After init\r\n");
-	SPL = (sp & 0xFF);
-	SPH = (sp >> 8) & 0xFF;
-	sp = (SPH << 8) | SPL;
-	sei();
-	__asm__ __volatile__("ret");
+	task_t *top = scheduler_get_top();
+
 
 
 	while(1)
