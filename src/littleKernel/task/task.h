@@ -9,6 +9,9 @@
 #define TASK_DEAD		(1<<6)
 #define TASK_NEW		(1<<7)
 
+#define task_sleep_ms(ms) task_sleep((F_CPU/TASK_CLOCK_PRE/TASK_CLOCK_PRD/1000)*ms)
+#define task_sleep_s(s)	  task_sleep((F_CPU/TASK_CLOCK_PRE/TASK_CLOCK_PRD)*s)
+
 typedef struct task
 {
 
@@ -17,6 +20,7 @@ typedef struct task
 	uint8_t id;
 	uint8_t priority;
 	uint8_t flags;
+	uint8_t exit_val;
 	uint32_t delay_ticks;
 	struct task *next;
 
@@ -24,8 +28,10 @@ typedef struct task
 
 }task_t;
 
+
+
 void tasks_print();
-void scheduler_add_task(uint8_t priority, void (*entry)());
+void scheduler_add_task(task_t* t, uint8_t priority, void (*entry)());
 void scheduler_init();
 uint16_t scheduler_get_sp();
 task_t *scheduler_get_top();
@@ -36,6 +42,7 @@ uint64_t get_ticks();
 
 
 void task_sleep(uint32_t ticks);
+void task_exit(uint8_t exit_val);
 
 
 

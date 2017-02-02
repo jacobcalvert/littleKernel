@@ -12,6 +12,7 @@ volatile uint32_t gTicks = 0;
 
 
 
+
 #define SAVE_CONTEXT() \
 asm volatile ( \
  "push r0 \n\t" \
@@ -122,11 +123,16 @@ void tasks_print()
 		p = p->next;
 	}
 }
-void scheduler_add_task(uint8_t priority, void (*entry)())
+void scheduler_add_task(task_t* t, uint8_t priority, void (*entry)())
 {
+	task_t *node = t;
+	if(t == 0)
+	{
+		node = (task_t *)malloc(sizeof(task_t));
+	}
 	if(taskList == 0)
 	{
-		taskList = (task_t *)malloc(sizeof(task_t));
+		taskList = node;
 		taskList->priority = priority;
 		taskList->entry = entry;
 		taskList->next = 0;
@@ -139,7 +145,6 @@ void scheduler_add_task(uint8_t priority, void (*entry)())
 		{
 			p = p->next;
 		}
-		task_t *node = (task_t *)malloc(sizeof(task_t));
 		node->priority = priority;
 		node->entry = entry;
 		node->next = 0;
@@ -165,8 +170,8 @@ void scheduler_init()
 		p = p->next;
 	}
 	pCurrentTask = taskList;
-	TCCR1B = (1<<CS11) | (1<< WGM12); 	/* io_clk / 1024  */
-	OCR1A = 2000;					/* roughly 1kHz */
+	TCCR1B = (1<<CS11) | (1<< WGM12); 	/* io_clk / 8  */
+	OCR1A = TASK_CLOCK_PRD;					/* roughly 10kHz */
 	TIFR1 = 1<<OCF1A; 				/* clear oc flag */
 	TIMSK1 = 1<<OCIE1A;				/* enable the int */
 
