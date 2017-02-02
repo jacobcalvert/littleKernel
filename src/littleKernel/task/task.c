@@ -11,7 +11,15 @@ volatile uint8_t fInISR = 0;
 volatile uint32_t gTicks = 0;
 
 
-
+/*
+ * so here's what's going on here
+ * 1) we push all the context, including SREG
+ *    a) note that we clear r1, this is because r1 is expected to always hold '0'
+ * 2) we load up the address of pCurrentTask into r26, r27 which is just loading up the current tasks sp location
+ *	  b) see RESTORE_CONTEXT() for more reasoning on this
+ * 3) we put SPL and SPH into r0 and write that to this tasks sp
+ * 4) donezo.
+ */
 
 #define SAVE_CONTEXT() \
 asm volatile ( \
@@ -59,7 +67,16 @@ asm volatile ( \
  "st x+, r0 \n\t" \
 );
 
-
+/*
+ * so here's what's going on here
+ * 1) we load up the address of pCurrentTask into r26 and r27
+ * 		a) because the tasks sp is the first member of our struct, we're really loading the sp address up (yay memory)
+ * 2) we then load the VALUE from XL into r28, and write r28 out to SPL
+ * 3) then the VALUE from XH into r29, and r29 out to SPH
+ * 4) our stack pointer now points to our next task, so we pop off all the registers
+ * 		a) we pop r0 twice because once before, we push'd SREG via r0.
+ * 5) we reenable interrupts and we're donezo.
+ */
 #define RESTORE_CONTEXT() \
 asm volatile ( \
  "lds r26, pCurrentTask \n\t" \
@@ -102,6 +119,7 @@ asm volatile ( \
  "pop r0 \n\t" \
  "out __SREG__, r0 \n\t" \
  "pop r0 \n\t" \
+ "sei \n\t" \
 );
 void TIMER1_COMPA_vect (void) __attribute__ ((signal, naked)) ;
 
@@ -176,10 +194,6 @@ void scheduler_init()
 	TIMSK1 = 1<<OCIE1A;				/* enable the int */
 
 }
-uint16_t scheduler_get_sp()
-{
-	return (uint16_t) pCurrentTask->sp;
-}
 void task_sleep(uint32_t ticks)
 {
 	/*
@@ -193,8 +207,8 @@ void task_sleep(uint32_t ticks)
 }
 void tick_handler()
 {
+	++gTicks;
 	task_t *p = taskList;
-
 	while(p != 0)
 	{
 		if(p->delay_ticks != 0)
@@ -245,12 +259,19 @@ uint64_t get_ticks()
 {
 	return gTicks;
 }
-task_t *scheduler_get_top()
-{
-	return pCurrentTask;
-}
 void scheduler_begin()
 {
+	/*
+	 * explanation
+	 * set the current task pointer to 3 below the end of the stack
+	 * 	- we do this because the sp points to the next *open* location
+	 * 	- when we do a `ret` or `reti` we pop the return address which I
+	 * 	 preloaded the low and high bytes into into STACK[SZ-1] and STACK[SZ-2]
+	 * 	- see scheduler_init() for this setup
+	 * set the processors SP to our task sp
+	 * enable interrupts
+	 * jump to the new task and let scheduling begin
+	 */
 	pCurrentTask->sp = &(pCurrentTask->stack[TASK_STACK_SIZE - 3]);
 	SP = (uint16_t)pCurrentTask->sp;
 	sei();
@@ -258,6 +279,14 @@ void scheduler_begin()
 }
 void scheduler_run()
 {
+	/*
+	 * explanation here
+	 * 1) SAVE 				- saves all registers state and the current SP
+	 * 2) tick_handler 		- does the tick countdowns, this handles sleeping tasks
+	 * 3) context_switcher	- decides what pCurrentTask is set to next based on priority and readiness
+	 * 4) RESTORE			- restores all registers from pCurrentTask
+	 * 5) ret				- pops the return address off the stack and hops there, resuming where it left off
+	 */
 	SAVE_CONTEXT();
 
 	tick_handler();
@@ -265,6 +294,5 @@ void scheduler_run()
 	context_switcher();
 
 	RESTORE_CONTEXT();
-	sei();
 	asm volatile ( "ret" );
 }
